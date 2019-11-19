@@ -5,8 +5,7 @@
  */
 
 #include <Arduino.h>
-#include <GyverEncoder.h>
-#include <buttonMinim.h>
+#include <Encoder.h>
 
 #define OLED_SOFT_BUFFER_64
 #define USE_MICRO_WIRE
@@ -18,7 +17,7 @@
 
 #define ENC_CLK 4
 #define ENC_DT 2
-#define ENC_SW 3
+#define ENC_BTN 3
 
 #define BTN_PIN A3
 
@@ -28,35 +27,40 @@
 #define IR_RC_PIN A7
 #define IR_TX_PIN A7
 
-Encoder enc1(ENC_CLK, ENC_DT, ENC_SW);
+Encoder enc(ENC_DT, ENC_CLK);
 GyverOLED oled;
-buttonMinim butt1(BTN_PIN);
 
-byte enc = 0;
+byte encVal = 0;
 
 void setup()
 {
   Serial.begin(9600);
+
+  pinMode(BTN_PIN, INPUT_PULLUP);
+  pinMode(ENC_BTN, INPUT_PULLUP);
   
   for(int i=LED_FIRST;i>=(LED_FIRST - LED_COUNT); i--)
   {
     pinMode(i, OUTPUT);
-    digitalWrite(i, LOW);
-    delay(1000);
+    //digitalWrite(i, LOW);
+    //delay(1000);
     digitalWrite(i, HIGH);
   }
 
-  enc1.setType(TYPE2);
-
   oled.init(OLED128x64);
-  enc = 0;
+  encVal = 0;
 
-  delay(1000);
+  delay(100);
 }
 
 void loop()
 {
-  enc1.tick();
+  int newenc = enc.read() >> 2;
+  if(encVal != newenc)
+  {
+    encVal = newenc;
+  }
+
   oled.clear();
   oled.home();
 
@@ -71,7 +75,7 @@ void loop()
   
   oled.inverse(false);
   oled.print("  ");
-  if (enc1.isHold())
+  if (!digitalRead(ENC_BTN))
   {
     oled.inverse(true);
   }
@@ -80,39 +84,21 @@ void loop()
   oled.inverse(false);
   oled.print(" ");
   oled.println();
-
-  if (enc1.isLeft()) 
-  {
-    enc++;
-  }
-  else
-  if (enc1.isRight()) 
-  {
-    enc--;
-  }
   
   oled.scale1X();
   oled.print("POT: ");
-  oled.print(analogRead(POT_PIN));
-  oled.print("     ");
-  oled.println();
+  oled.println(analogRead(POT_PIN));
   oled.print("OPT: ");
-  oled.print(analogRead(OPT_PIN));
-  oled.print("     ");
-  oled.println();
+  oled.println(analogRead(OPT_PIN));
   oled.print("ENC: ");
-  oled.print(enc);
-  oled.print("     ");
+  oled.println(encVal);
 
   oled.update();
 
-  //if (enc1.isRight()) Serial.println("Encoder right"); 
-  //if (enc1.isLeft()) Serial.println("Encoder left");
-  //if (enc1.isClick()) Serial.println("Encoder click"); 
-
-  //Serial.print("Pot: ");
-  //Serial.print(analogRead(POT_PIN)); 
-  //Serial.print("\t\t Light: ");
-  //Serial.print(analogRead(OPT_PIN));
-  //Serial.println();
+  for(int i=0; i<8; i++)
+  {
+    boolean state = ((encVal >> i) & 0x01) != 0;
+    int led = LED_FIRST - i;
+    digitalWrite(led, state ? LOW : HIGH);
+  }
 }
